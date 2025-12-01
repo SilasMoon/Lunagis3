@@ -184,8 +184,8 @@ export const TimeProvider: React.FC<TimeProviderProps> = ({
         } else {
             // Start playing
             if (timeRange) {
-                const [startDate, endDate] = timeRange;
-                playbackRange.current = { start: getIndexForDate(startDate), end: getIndexForDate(endDate) };
+                const { start, end } = timeRange;
+                playbackRange.current = { start, end };
                 setCurrentDateIndex(timeRange.start);
             }
             setIsPaused(false);

@@ -10,12 +10,12 @@
  * - CRS: Polar Stereographic (South Pole Centered)
  */
 
-import { NetCDFReader } from './LazyDataset';
+import { NetCDFReader, ILazyDataset } from './LazyDataset';
 import * as h5wasm from 'h5wasm';
 import type { File as H5File, Dataset as H5Dataset } from 'h5wasm';
 
 export interface NetCdf4ParseResult {
-  reader: NetCDFReader;
+  reader: ILazyDataset;
   shape: [number, number, number]; // [time, height, width]
   dimensions: {
     time: number;
