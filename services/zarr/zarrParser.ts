@@ -9,13 +9,27 @@ export async function parseZarrZip(file: File): Promise<NetCdf4ParseResult> {
     const array = reader.getArray();
     if (!array) throw new Error("Failed to initialize Zarr array");
 
-    const shape = array.shape; // [time, y, x]
-    if (shape.length !== 3) throw new Error(`Expected 3D array, got ${shape.length}D`);
+    const shape = array.shape; // [time, y, x] or [y, x]
+    let timeDim = 1;
+    let heightDim = 0;
+    let widthDim = 0;
+
+    if (shape.length === 3) {
+        timeDim = shape[0];
+        heightDim = shape[1];
+        widthDim = shape[2];
+    } else if (shape.length === 2) {
+        timeDim = 1;
+        heightDim = shape[0];
+        widthDim = shape[1];
+    } else {
+        throw new Error(`Expected 2D or 3D array, got ${shape.length}D`);
+    }
 
     const dimensions = {
-        time: shape[0],
-        height: shape[1],
-        width: shape[2]
+        time: timeDim,
+        height: heightDim,
+        width: widthDim
     };
 
     // Get attributes
@@ -39,7 +53,7 @@ export async function parseZarrZip(file: File): Promise<NetCdf4ParseResult> {
 
     // Construct metadata
     const metadata: NetCdf4Metadata = {
-        variableName: attrs.variable_name || 'illumination',
+        variableName: reader.getVariableName(),
         title: attrs.title || file.name,
         institution: attrs.institution,
         source: attrs.source,
@@ -55,7 +69,7 @@ export async function parseZarrZip(file: File): Promise<NetCdf4ParseResult> {
 
     return {
         reader: reader,
-        shape: [shape[0], shape[1], shape[2]],
+        shape: [timeDim, heightDim, widthDim],
         dimensions,
         metadata,
         coordinates: {

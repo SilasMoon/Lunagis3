@@ -32,4 +32,8 @@ export class ZipFileStore implements zarr.Readable {
 
         return entry;
     }
+
+    keys(): string[] {
+        return Object.keys(this.entries);
+    }
 }
