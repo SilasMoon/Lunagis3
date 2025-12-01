@@ -1,0 +1,20 @@
+{
+    "name": "zarr-zip-poc",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "tsc && vite build",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "fflate": "^0.8.2",
+        "unzipit": "^1.4.0",
+        "zarrita": "^0.4.0"
+    },
+    "devDependencies": {
+        "typescript": "^5.2.2",
+        "vite": "^5.2.0"
+    }
+}

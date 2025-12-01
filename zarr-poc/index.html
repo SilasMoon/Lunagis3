@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zarr ZipStore PoC</title>
+    <style>
+      body { font-family: system-ui, sans-serif; background: #1a1a1a; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+      canvas { background: #000; margin: 20px 0; max-width: 100%; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+      .controls { display: flex; gap: 10px; align-items: center; background: #333; padding: 10px; border-radius: 8px; }
+      button { padding: 8px 16px; cursor: pointer; background: #444; color: white; border: none; border-radius: 4px; }
+      button:hover { background: #555; }
+      input[type="range"] { width: 300px; }
+      .stats { font-family: monospace; color: #888; margin-top: 10px; }
+    </style>
+  </head>
+  <body>
+    <h1>Zarr ZipStore PoC</h1>
+    
+    <div style="margin-bottom: 20px;">
+      <input type="file" id="fileInput" accept=".zip" />
+    </div>
+
+    <canvas id="renderer"></canvas>
+
+    <div class="controls">
+      <button id="playPause">Play</button>
+      <input type="range" id="timeSlider" min="0" max="100" value="0" />
+      <span id="timeLabel">0</span>
+    </div>
+
+    <div class="stats">
+      FPS: <span id="fps">0</span> | 
+      Memory: <span id="memory">0</span> MB | 
+      Chunk Time: <span id="chunkTime">0</span> ms
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
