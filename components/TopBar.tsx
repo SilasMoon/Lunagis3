@@ -131,7 +131,7 @@ export const ToolBar: React.FC<ToolBarProps> = ({ onUserManualClick }) => {
       <div className="w-full border-t border-gray-700" />
 
       {/* Import/Export Buttons */}
-      <input type="file" ref={importInputRef} onChange={handleFileSelect} accept=".json" style={{ display: 'none' }} />
+      <input type="file" ref={importInputRef} onChange={handleFileSelect} accept=".json,.yaml,.yml" style={{ display: 'none' }} />
       <button
         onClick={handleImportClick}
         title="Import Config"

@@ -17,6 +17,7 @@ import { parseZarrZip } from '../services/zarr/zarrParser';
 import proj4 from 'proj4';
 import * as analysisService from '../services/analysisService';
 import { IMAGE_LOAD_TIMEOUT_MS } from '../config/defaults';
+import { parsePathFromYaml } from '../utils/pathImport';
 
 interface SessionContextType {
     onExportConfig: () => Promise<void>;
@@ -76,12 +77,13 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const {
         activeTool, setActiveTool, setImportRequest, setNightfallPlotYAxisRange,
-        nightfallPlotYAxisRange, activityDefinitions, setActivityDefinitions
+        nightfallPlotYAxisRange
     } = useUIStateContext();
 
     const {
         artifacts, setArtifacts, artifactDisplayOptions, setArtifactDisplayOptions,
-        pathCreationOptions, setPathCreationOptions, events, setEvents
+        pathCreationOptions, setPathCreationOptions, events, setEvents,
+        activityDefinitions, setActivityDefinitions
     } = useArtifactContext();
 
     const { showError, showWarning } = useToast();
@@ -367,33 +369,47 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
     ]);
 
     const onImportConfig = useCallback((file: File) => {
-        setIsLoading("Reading config file...");
+        setIsLoading("Reading file...");
         const reader = new FileReader();
         reader.onload = (event) => {
             try {
-                const config = JSON.parse(event.target?.result as string) as AppStateConfig;
-                if (config.version !== 1) { throw new Error("Unsupported config version."); }
+                const content = event.target?.result as string;
 
-                const requiredFiles: string[] = [];
-                for (const l of config.layers) {
-                    if (l.type === 'data' || l.type === 'dte_comms' || l.type === 'lpf_comms') {
-                        requiredFiles.push(l.fileName);
-                    } else if (l.type === 'basemap') {
-                        requiredFiles.push(l.pngFileName);
-                        requiredFiles.push(l.vrtFileName);
-                    } else if (l.type === 'illumination') {
-                        requiredFiles.push(l.fileName);
+                if (file.name.toLowerCase().endsWith('.yaml') || file.name.toLowerCase().endsWith('.yml')) {
+                    // Import Path YAML
+                    try {
+                        const pathArtifact = parsePathFromYaml(content, file.name, activityDefinitions);
+                        setArtifacts(prev => [...prev, pathArtifact]);
+                        // We could show a success toast here if we had a success method exposed
+                    } catch (e) {
+                        showError(`Error parsing YAML path: ${e instanceof Error ? e.message : String(e)}`);
                     }
-                    // Image layers don't need separate files - they're embedded as data URLs
-                }
-
-                if (requiredFiles.length > 0) {
-                    setImportRequest({ config, requiredFiles });
                 } else {
-                    handleRestoreSession(config, []); // No files required
+                    // Import Session Config JSON
+                    const config = JSON.parse(content) as AppStateConfig;
+                    if (config.version !== 1) { throw new Error("Unsupported config version."); }
+
+                    const requiredFiles: string[] = [];
+                    for (const l of config.layers) {
+                        if (l.type === 'data' || l.type === 'dte_comms' || l.type === 'lpf_comms') {
+                            requiredFiles.push(l.fileName);
+                        } else if (l.type === 'basemap') {
+                            requiredFiles.push(l.pngFileName);
+                            requiredFiles.push(l.vrtFileName);
+                        } else if (l.type === 'illumination') {
+                            requiredFiles.push(l.fileName);
+                        }
+                        // Image layers don't need separate files - they're embedded as data URLs
+                    }
+
+                    if (requiredFiles.length > 0) {
+                        setImportRequest({ config, requiredFiles });
+                    } else {
+                        handleRestoreSession(config, []); // No files required
+                    }
                 }
             } catch (e) {
-                showError(`Error reading config file: ${e instanceof Error ? e.message : String(e)}`);
+                showError(`Error reading file: ${e instanceof Error ? e.message : String(e)}`);
             } finally {
                 setIsLoading(null);
             }
@@ -403,7 +419,7 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
             setIsLoading(null);
         };
         reader.readAsText(file);
-    }, [handleRestoreSession, setImportRequest, setIsLoading, showError]);
+    }, [handleRestoreSession, setImportRequest, setIsLoading, showError, activityDefinitions, setArtifacts]);
 
     return (
         <SessionContext.Provider value={{ onExportConfig, onImportConfig, handleRestoreSession }}>
