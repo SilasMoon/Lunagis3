@@ -1,6 +1,10 @@
 import * as zarr from 'zarrita';
+import { Blosc } from 'numcodecs';
 import { ILazyDataset, SliceData, globalSliceCache } from '../LazyDataset';
 import { ZipFileStore } from './ZipFileStore';
+
+// Register Blosc codec for Zarr decompression
+zarr.registry.set('blosc', () => Promise.resolve(Blosc as any));
 
 export class ZarrLazyDataset implements ILazyDataset {
     private store: ZipFileStore;
