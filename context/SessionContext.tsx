@@ -303,7 +303,14 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
                         } else { // daylight_fraction
                             const calcTimeRange = config.timeRange || { start: 0, end: sourceLayer.dimensions.time - 1 };
                             const threshold = sLayer.params.illuminationThreshold;
-                            const { slice } = analysisService.calculateDaylightFraction(sourceLayer.dataset, calcTimeRange, sourceLayer.dimensions, sourceLayer.id, threshold);
+                            const { slice } = await analysisService.calculateDaylightFraction(
+                                sourceLayer.dataset,
+                                calcTimeRange,
+                                sourceLayer.dimensions,
+                                sourceLayer.id,
+                                threshold,
+                                sourceLayer.lazyDataset
+                            );
                             calculatedDataset = Array.from({ length: sourceLayer.dimensions.time }, () => slice);
                         }
                         finalAnalysisLayer = { ...sLayer, dataset: calculatedDataset };

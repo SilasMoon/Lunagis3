@@ -568,37 +568,49 @@ export const LayerOperationsProvider: React.FC<{ children: React.ReactNode }> = 
         setIsLoading(null);
     }, [layers, setLayers, setActiveLayerId, setIsLoading]);
 
-    const onCalculateDaylightFractionLayer = useCallback((sourceLayerId: string, threshold?: number) => {
+    const onCalculateDaylightFractionLayer = useCallback(async (sourceLayerId: string, threshold?: number) => {
         const sourceLayer = layers.find(l => l.id === sourceLayerId) as (DataLayer | IlluminationLayer) | undefined;
         if (!sourceLayer || !timeRange) return;
 
-        const effectiveThreshold = threshold !== undefined ? threshold : (sourceLayer.type === 'illumination' ? 0 : undefined);
+        setIsLoading(`Calculating daylight fraction for "${sourceLayer.name}"...`);
+        // Yield to let UI update
+        await new Promise(r => setTimeout(r, 50));
 
-        const { slice, range } = analysisService.calculateDaylightFraction(
-            sourceLayer.dataset,
-            timeRange,
-            sourceLayer.dimensions,
-            sourceLayer.id,
-            effectiveThreshold
-        );
+        try {
+            const effectiveThreshold = threshold !== undefined ? threshold : (sourceLayer.type === 'illumination' ? 0 : undefined);
 
-        const resultDataset: DataSet = Array.from({ length: sourceLayer.dimensions.time }, () => slice);
+            const { slice, range } = await analysisService.calculateDaylightFraction(
+                sourceLayer.dataset,
+                timeRange,
+                sourceLayer.dimensions,
+                sourceLayer.id,
+                effectiveThreshold,
+                sourceLayer.lazyDataset,
+                (msg) => setIsLoading(msg)
+            );
 
-        const newLayer: AnalysisLayer = {
-            id: generateSecureId('analysis'),
-            name: `Daylight Fraction for ${sourceLayer.name}`,
-            type: 'analysis', analysisType: 'daylight_fraction',
-            visible: true, opacity: 1.0, colormap: 'Turbo',
-            dataset: resultDataset, range,
-            dimensions: sourceLayer.dimensions, sourceLayerId,
-            params: { illuminationThreshold: effectiveThreshold },
-            geospatial: sourceLayer.type === 'illumination' ? sourceLayer.geospatial : undefined,
-            temporalInfo: sourceLayer.type === 'illumination' ? sourceLayer.temporalInfo : undefined,
-        };
+            const resultDataset: DataSet = Array.from({ length: sourceLayer.dimensions.time }, () => slice);
 
-        setLayers(prev => [...prev, newLayer]);
-        setActiveLayerId(newLayer.id);
-    }, [layers, timeRange, setLayers, setActiveLayerId]);
+            const newLayer: AnalysisLayer = {
+                id: generateSecureId('analysis'),
+                name: `Daylight Fraction for ${sourceLayer.name}`,
+                type: 'analysis', analysisType: 'daylight_fraction',
+                visible: true, opacity: 1.0, colormap: 'Turbo',
+                dataset: resultDataset, range,
+                dimensions: sourceLayer.dimensions, sourceLayerId,
+                params: { illuminationThreshold: effectiveThreshold },
+                geospatial: sourceLayer.type === 'illumination' ? sourceLayer.geospatial : undefined,
+                temporalInfo: sourceLayer.type === 'illumination' ? sourceLayer.temporalInfo : undefined,
+            };
+
+            setLayers(prev => [...prev, newLayer]);
+            setActiveLayerId(newLayer.id);
+        } catch (e) {
+            showError(`Error calculating daylight fraction: ${e instanceof Error ? e.message : String(e)}`);
+        } finally {
+            setIsLoading(null);
+        }
+    }, [layers, timeRange, setLayers, setActiveLayerId, setIsLoading, showError]);
 
     const onCreateExpressionLayer = useCallback(async (name: string, expression: string) => {
         setIsLoading(`Calculating expression "${name}"...`);

@@ -1,4 +1,5 @@
 import type { DataSet, DataSlice, Layer, DataLayer, AnalysisLayer, DteCommsLayer, LpfCommsLayer, IlluminationLayer, TimeRange } from '../types';
+import type { ILazyDataset } from './LazyDataset';
 import { evaluate as evaluateExpression, getVariables as getExpressionVariables, compileExpression, evaluateCompiled } from './expressionEvaluator';
 import { analysisCache, AnalysisCacheKey } from './analysisCache';
 
@@ -32,7 +33,7 @@ export const calculateExpressionLayer = async (
         }
         return cachedResult;
     }
-    
+
     if (sourceLayers.length === 0 && variables.length > 0) {
         throw new Error(`No layers found for variables in expression: ${variables.join(', ')}`);
     }
@@ -141,12 +142,14 @@ export const calculateExpressionLayer = async (
 };
 
 
-export const calculateDaylightFraction = (
+export const calculateDaylightFraction = async (
     dataset: DataSet,
     timeRange: TimeRange,
-    dimensions: {height: number, width: number},
+    dimensions: { height: number, width: number },
     sourceLayerId?: string,
-    threshold?: number
+    threshold?: number,
+    lazyDataset?: ILazyDataset,
+    onProgress?: (message: string) => void
 ) => {
     const { height, width } = dimensions;
 
@@ -155,7 +158,12 @@ export const calculateDaylightFraction = (
 
     // Check cache before computing (if we have a source layer ID)
     if (sourceLayerId) {
-        const datasetHash = AnalysisCacheKey.hashDataset(dataset, { time: dataset.length, height, width });
+        // For lazy datasets, we can't easily hash the content, so we use a placeholder or hash metadata
+        // Ideally, we should have a better caching strategy for lazy layers
+        const datasetHash = lazyDataset
+            ? `lazy-${sourceLayerId}-${timeRange.start}-${timeRange.end}`
+            : AnalysisCacheKey.hashDataset(dataset, { time: dataset.length, height, width });
+
         const cacheKey = AnalysisCacheKey.forDaylightFraction(sourceLayerId, datasetHash, timeRange, effectiveThreshold);
         const cachedResult = analysisCache.getDaylightFraction(cacheKey);
         if (cachedResult) {
@@ -170,20 +178,75 @@ export const calculateDaylightFraction = (
         return { slice: resultSlice, range: { min: 0, max: 100 } };
     }
 
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            let dayHours = 0;
-            for (let t = timeRange.start; t <= timeRange.end; t++) {
-                if (t >= dataset.length) continue;
-                const value = dataset[t][y][x];
-                // For binary data: value === 1
-                // For continuous data (e.g., illumination): value > threshold
-                if (effectiveThreshold === 1) {
-                    if (value === 1) dayHours++;
-                } else {
-                    if (value > effectiveThreshold) dayHours++;
+    const yieldToMain = () => new Promise(resolve => setTimeout(resolve, 0));
+    const totalSteps = timeRange.end - timeRange.start + 1;
+    let processedSteps = 0;
+
+    // Initialize dayHours counter for each pixel
+    const dayHoursMap = new Float32Array(height * width).fill(0);
+
+    for (let t = timeRange.start; t <= timeRange.end; t++) {
+        let slice: number[][] | Float32Array | Uint8Array | Int8Array | Uint16Array | Int16Array | Int32Array | Uint32Array | Float64Array;
+
+        if (lazyDataset) {
+            // Fetch slice from lazy dataset
+            try {
+                slice = await lazyDataset.getSlice(t);
+            } catch (e) {
+                console.error(`Failed to load slice ${t} for daylight fraction calculation:`, e);
+                continue; // Skip this frame if it fails
+            }
+        } else {
+            // Use in-memory dataset
+            if (t >= dataset.length) continue;
+            slice = dataset[t];
+        }
+
+        // Process slice
+        // Handle both 2D array (DataSet) and TypedArrays (LazyDataset)
+        if (Array.isArray(slice) && Array.isArray(slice[0])) {
+            // 2D Array
+            let flatIndex = 0;
+            const arraySlice = slice as number[][];
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const value = arraySlice[y][x];
+                    if (effectiveThreshold === 1) {
+                        if (value === 1) dayHoursMap[flatIndex]++;
+                    } else {
+                        if (value > effectiveThreshold) dayHoursMap[flatIndex]++;
+                    }
+                    flatIndex++;
                 }
             }
+        } else {
+            // TypedArray or 1D array
+            const typedSlice = slice as Float32Array; // Treat as generic array access
+            for (let i = 0; i < typedSlice.length; i++) {
+                const value = typedSlice[i];
+                if (effectiveThreshold === 1) {
+                    if (value === 1) dayHoursMap[i]++;
+                } else {
+                    if (value > effectiveThreshold) dayHoursMap[i]++;
+                }
+            }
+        }
+
+        processedSteps++;
+        if (processedSteps % 10 === 0) {
+            if (onProgress) {
+                const percent = Math.floor((processedSteps / totalSteps) * 100);
+                onProgress(`Calculating daylight fraction... ${percent}%`);
+            }
+            await yieldToMain();
+        }
+    }
+
+    // Convert counts to fractions and populate resultSlice
+    let flatIndex = 0;
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const dayHours = dayHoursMap[flatIndex++];
             const fraction = (dayHours / totalHours) * 100;
             resultSlice[y][x] = fraction;
         }
@@ -193,7 +256,10 @@ export const calculateDaylightFraction = (
 
     // Store result in cache (if we have a source layer ID)
     if (sourceLayerId) {
-        const datasetHash = AnalysisCacheKey.hashDataset(dataset, { time: dataset.length, height, width });
+        const datasetHash = lazyDataset
+            ? `lazy-${sourceLayerId}-${timeRange.start}-${timeRange.end}`
+            : AnalysisCacheKey.hashDataset(dataset, { time: dataset.length, height, width });
+
         const cacheKey = AnalysisCacheKey.forDaylightFraction(sourceLayerId, datasetHash, timeRange, effectiveThreshold);
         analysisCache.setDaylightFraction(cacheKey, result);
     }
@@ -201,7 +267,7 @@ export const calculateDaylightFraction = (
     return result;
 };
 
-export const calculateNightfallDataset = async (sourceLayer: DataLayer | IlluminationLayer, threshold?: number): Promise<{dataset: DataSet, range: {min: number, max: number}, maxDuration: number}> => {
+export const calculateNightfallDataset = async (sourceLayer: DataLayer | IlluminationLayer, threshold?: number): Promise<{ dataset: DataSet, range: { min: number, max: number }, maxDuration: number }> => {
     const { dataset, dimensions } = sourceLayer;
     const { time, height, width } = dimensions;
 
@@ -257,7 +323,7 @@ export const calculateNightfallDataset = async (sourceLayer: DataLayer | Illumin
                 const duration = time - nightStart;
                 nightPeriods.push({ start: nightStart, end: time, duration });
             }
-            
+
             // --- Pass 2: Populate the forecast using the pre-computed list ---
             let nextNightIndex = 0;
             for (let t = 0; t < time; t++) {
@@ -283,7 +349,7 @@ export const calculateNightfallDataset = async (sourceLayer: DataLayer | Illumin
                         if (forecastValue < minDuration) minDuration = forecastValue;
                     } else {
                         // This case should ideally not happen if logic is correct
-                        resultDataset[t][y][x] = -1; 
+                        resultDataset[t][y][x] = -1;
                     }
                 }
             }
