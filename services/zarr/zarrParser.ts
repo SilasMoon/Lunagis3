@@ -64,7 +64,8 @@ export async function parseZarrZip(file: File): Promise<NetCdf4ParseResult> {
             // Default to polar stereographic if not specified, or try to read from grid_mapping
             projection: 'stereographic',
             spatialRef: attrs.spatial_ref || '+proj=stere +lat_0=-90 +lon_0=0 +k=1 +x_0=0 +y_0=0 +a=1737400 +b=1737400 +units=m +no_defs'
-        }
+        },
+        rawAttributes: attrs
     };
 
     return {

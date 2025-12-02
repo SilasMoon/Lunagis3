@@ -4,3 +4,4 @@ generate_debug_netcdf.py
 illumination_map.nc
 illumination_map.zarr.zip
 Reference/elevation_map.zarr.zip
+Reference/orbiter_visibility.zarr.zip

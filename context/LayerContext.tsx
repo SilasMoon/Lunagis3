@@ -289,21 +289,62 @@ export const LayerOperationsProvider: React.FC<{ children: React.ReactNode }> = 
 
             // Calculate min/max
             let min = 0, max = 1;
-            try {
-                const firstSlice = await reader.getSlice(0);
-                min = Infinity;
-                max = -Infinity;
-                const step = Math.ceil(firstSlice.length / 10000);
-                for (let i = 0; i < firstSlice.length; i += step) {
-                    const val = firstSlice[i];
-                    if (val < min) min = val;
-                    if (val > max) max = val;
+            let rangeFound = false;
+
+            // 1. Try to get range from metadata
+            if (metadata.rawAttributes) {
+                // Check for valid_min/valid_max
+                if (metadata.rawAttributes.valid_min !== undefined && metadata.rawAttributes.valid_max !== undefined) {
+                    min = Number(metadata.rawAttributes.valid_min);
+                    max = Number(metadata.rawAttributes.valid_max);
+                    rangeFound = true;
+                    console.log(`Found range in metadata (valid_min/max): [${min}, ${max}]`);
                 }
-                if (!isFinite(min) || !isFinite(max) || min === max) {
+                // Check for description with enum-like values (e.g., "0:None... 3:Both")
+                else if (metadata.rawAttributes.description && typeof metadata.rawAttributes.description === 'string') {
+                    const desc = metadata.rawAttributes.description;
+                    const matches = desc.match(/(\d+):/g);
+                    if (matches && matches.length > 0) {
+                        const values = matches.map(m => parseInt(m.replace(':', ''), 10));
+                        min = Math.min(...values);
+                        max = Math.max(...values);
+                        rangeFound = true;
+                        console.log(`Found range in metadata description: [${min}, ${max}]`);
+                    }
+                }
+            }
+
+            // 2. If not found, sample data (improved sampling)
+            if (!rangeFound) {
+                try {
+                    min = Infinity;
+                    max = -Infinity;
+
+                    // Sample first, middle, and last slices
+                    const indicesToSample = [0];
+                    if (time > 1) indicesToSample.push(Math.floor(time / 2));
+                    if (time > 2) indicesToSample.push(time - 1);
+
+                    for (const t of indicesToSample) {
+                        const slice = await reader.getSlice(t);
+                        // Sample 1% of pixels from each slice
+                        const step = Math.max(1, Math.ceil(slice.length / 10000));
+                        for (let i = 0; i < slice.length; i += step) {
+                            const val = slice[i];
+                            if (val < min) min = val;
+                            if (val > max) max = val;
+                        }
+                    }
+
+                    if (!isFinite(min) || !isFinite(max) || min === max) {
+                        min = 0; max = 1;
+                    } else {
+                        console.log(`Calculated range from sampling ${indicesToSample.length} slices: [${min}, ${max}]`);
+                    }
+                } catch (e) {
+                    console.warn('Failed to calculate min/max from sampling:', e);
                     min = 0; max = 1;
                 }
-            } catch (e) {
-                console.warn('Failed to calculate min/max from first slice:', e);
             }
 
             // Parse temporal info

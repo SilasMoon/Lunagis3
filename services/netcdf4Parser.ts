@@ -60,6 +60,7 @@ export interface NetCdf4Metadata {
     min: number;
     max: number;
   };
+  rawAttributes?: Record<string, any>;
 }
 
 // State
