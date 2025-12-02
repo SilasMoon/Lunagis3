@@ -13,6 +13,7 @@ import { useToast } from '../components/Toast';
 import { parseNpy } from '../services/npyParser';
 import { parseVrt } from '../services/vrtParser';
 import { parseNetCdf4, parseTimeValues } from '../services/netcdf4Parser';
+import { parseZarrZip } from '../services/zarr/zarrParser';
 import proj4 from 'proj4';
 import * as analysisService from '../services/analysisService';
 import { IMAGE_LOAD_TIMEOUT_MS } from '../config/defaults';
@@ -234,8 +235,24 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
                     const file = fileMap.get(sLayer.fileName);
                     if (!file) throw new Error(`Required file "${sLayer.fileName}" was not provided.`);
 
-                    const arrayBuffer = await file.arrayBuffer();
-                    const { reader } = await parseNetCdf4(arrayBuffer);
+                    // Check file signature to determine if it's a Zip (Zarr) or HDF5 (NetCDF)
+                    // Read first 4 bytes
+                    const headerBuffer = await file.slice(0, 4).arrayBuffer();
+                    const headerView = new Uint8Array(headerBuffer);
+                    const isZip = headerView[0] === 0x50 && headerView[1] === 0x4b && headerView[2] === 0x03 && headerView[3] === 0x04;
+                    const isZarrExt = file.name.endsWith('.zarr') || file.name.endsWith('.zip');
+
+                    let parseResult;
+                    if (isZip || isZarrExt) {
+                        console.log(`Detected Zarr/Zip file: ${file.name}`);
+                        parseResult = await parseZarrZip(file);
+                    } else {
+                        console.log(`Assuming NetCDF/HDF5 file: ${file.name}`);
+                        const arrayBuffer = await file.arrayBuffer();
+                        parseResult = await parseNetCdf4(arrayBuffer);
+                    }
+
+                    const { reader } = parseResult;
 
                     // Parse dates in temporalInfo if they exist (JSON deserialization leaves them as strings)
                     let temporalInfo = sLayer.temporalInfo;
