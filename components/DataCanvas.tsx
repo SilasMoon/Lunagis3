@@ -1,6 +1,6 @@
 // Fix: Removed invalid file header which was causing parsing errors.
 import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
-import type { DataSlice, GeoCoordinates, ViewState, Layer, BaseMapLayer, DataLayer, AnalysisLayer, ImageLayer, TimeRange, Tool, Artifact, DteCommsLayer, LpfCommsLayer, Waypoint, PathArtifact, CircleArtifact, RectangleArtifact } from '../types';
+import type { DataSlice, GeoCoordinates, ViewState, Layer, BaseMapLayer, DataLayer, AnalysisLayer, ImageLayer, TimeRange, Tool, Artifact, DteCommsLayer, LpfCommsLayer, Waypoint, PathArtifact, CircleArtifact, RectangleArtifact, PointArtifact } from '../types';
 import { getColorScale } from '../services/colormap';
 import { ZoomControls } from './ZoomControls';
 import { canvasCache } from '../services/canvasCache';
@@ -1462,6 +1462,83 @@ export const DataCanvas: React.FC = () => {
             ctx.restore();
           }
         }
+      } else if (artifact.type === 'point') {
+        // Project geo coordinates to projected space
+        try {
+          const projPos = proj.forward(artifact.position) as [number, number];
+          if (projPos && isFinite(projPos[0]) && isFinite(projPos[1])) {
+            const size = (artifact.symbolSize || 24) / 2 / effectiveScale;
+            const shape = artifact.shape || 'circle';
+
+            ctx.beginPath();
+
+            switch (shape) {
+              case 'circle':
+                ctx.arc(projPos[0], projPos[1], size, 0, 2 * Math.PI);
+                break;
+              case 'square':
+                ctx.rect(projPos[0] - size, projPos[1] - size, size * 2, size * 2);
+                break;
+              case 'diamond':
+                ctx.moveTo(projPos[0], projPos[1] - size);
+                ctx.lineTo(projPos[0] + size, projPos[1]);
+                ctx.lineTo(projPos[0], projPos[1] + size);
+                ctx.lineTo(projPos[0] - size, projPos[1]);
+                ctx.closePath();
+                break;
+              case 'triangle':
+                ctx.moveTo(projPos[0], projPos[1] - size);
+                ctx.lineTo(projPos[0] + size * 0.866, projPos[1] + size * 0.5);
+                ctx.lineTo(projPos[0] - size * 0.866, projPos[1] + size * 0.5);
+                ctx.closePath();
+                break;
+              case 'star':
+                for (let i = 0; i < 5; i++) {
+                  const angle = (i * 4 * Math.PI / 5) - Math.PI / 2;
+                  const x = projPos[0] + size * Math.cos(angle);
+                  const y = projPos[1] + size * Math.sin(angle);
+                  if (i === 0) ctx.moveTo(x, y);
+                  else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                break;
+              case 'cross':
+                const arm = size * 0.35;
+                ctx.moveTo(projPos[0] - arm, projPos[1] - size);
+                ctx.lineTo(projPos[0] + arm, projPos[1] - size);
+                ctx.lineTo(projPos[0] + arm, projPos[1] - arm);
+                ctx.lineTo(projPos[0] + size, projPos[1] - arm);
+                ctx.lineTo(projPos[0] + size, projPos[1] + arm);
+                ctx.lineTo(projPos[0] + arm, projPos[1] + arm);
+                ctx.lineTo(projPos[0] + arm, projPos[1] + size);
+                ctx.lineTo(projPos[0] - arm, projPos[1] + size);
+                ctx.lineTo(projPos[0] - arm, projPos[1] + arm);
+                ctx.lineTo(projPos[0] - size, projPos[1] + arm);
+                ctx.lineTo(projPos[0] - size, projPos[1] - arm);
+                ctx.lineTo(projPos[0] - arm, projPos[1] - arm);
+                ctx.closePath();
+                break;
+              case 'pin':
+                // Pin shape: circle on top with pointer at bottom
+                ctx.arc(projPos[0], projPos[1] - size * 0.6, size * 0.6, 0, 2 * Math.PI);
+                ctx.moveTo(projPos[0] - size * 0.4, projPos[1] - size * 0.3);
+                ctx.lineTo(projPos[0], projPos[1] + size);
+                ctx.lineTo(projPos[0] + size * 0.4, projPos[1] - size * 0.3);
+                break;
+              default:
+                ctx.arc(projPos[0], projPos[1], size, 0, 2 * Math.PI);
+            }
+
+            ctx.fill();
+
+            // Draw outline for visibility
+            ctx.lineWidth = artifact.thickness / effectiveScale;
+            ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+            ctx.stroke();
+          }
+        } catch (e) {
+          logger.warn('DataCanvas: Failed to project point position', e);
+        }
       }
 
       ctx.save();
@@ -1482,6 +1559,12 @@ export const DataCanvas: React.FC = () => {
             }
           }
         }
+      } else if (artifact.type === 'point') {
+        try {
+          centerPos = proj.forward(artifact.position);
+        } catch (e) {
+          logger.warn('DataCanvas: Failed to project point for label', e);
+        }
       } else {
         centerPos = artifact.center;
       }
@@ -1495,8 +1578,25 @@ export const DataCanvas: React.FC = () => {
         ctx.textBaseline = 'bottom';
         ctx.strokeStyle = 'rgba(0,0,0,0.7)';
         ctx.lineWidth = 3;
-        ctx.strokeText(artifact.name, 0, -10);
-        ctx.fillText(artifact.name, 0, -10);
+
+        // Calculate label offset based on artifact type and size
+        let labelOffset = 10; // Base padding from artifact edge
+        if (artifact.type === 'circle') {
+          // Circle: offset from radius (convert projected units to screen pixels)
+          labelOffset = (artifact.radius * effectiveScale) + 8;
+        } else if (artifact.type === 'rectangle') {
+          // Rectangle: offset from half height
+          labelOffset = (artifact.height / 2 * effectiveScale) + 8;
+        } else if (artifact.type === 'point') {
+          // Point: offset from symbol size
+          labelOffset = ((artifact.symbolSize || 24) / 2) + 8;
+        } else if (artifact.type === 'path') {
+          // Path: offset from waypoint dot size
+          labelOffset = (artifactDisplayOptions.waypointDotSize / 2) + 8;
+        }
+
+        ctx.strokeText(artifact.name, 0, -labelOffset);
+        ctx.fillText(artifact.name, 0, -labelOffset);
       }
       ctx.restore();
     });
@@ -2057,6 +2157,22 @@ export const DataCanvas: React.FC = () => {
           setRectangleFirstCorner(null);
           onFinishArtifactCreation();
         }
+      } else if (artifactCreationMode === 'point') {
+        // Single click creates a point at the clicked geo position
+        const pointId = `point-${Date.now()}`;
+        const newArtifact: PointArtifact = {
+          id: pointId,
+          type: 'point',
+          name: `Point ${artifacts.filter(a => a.type === 'point').length + 1}`,
+          visible: true,
+          color: '#ff6b6b',
+          thickness: 2,
+          position: [coords.lon, coords.lat],
+          symbolSize: 24,
+        };
+        setArtifacts(prev => [...prev, newArtifact]);
+        setActiveArtifactId(pointId);
+        onFinishArtifactCreation();
       }
     } else if (isAppendingWaypoints) {
       const activeArtifact = artifacts.find(a => a.id === activeArtifactId) as PathArtifact | undefined;
@@ -2167,6 +2283,13 @@ export const DataCanvas: React.FC = () => {
           }
         });
         setDraggedInfo({ artifactId: info.artifactId, initialMousePos: projCoords, initialWaypointProjPositions });
+      } else if (artifact.type === 'point') {
+        // Store initial geo position for point dragging
+        setDraggedInfo({
+          artifactId: info.artifactId,
+          initialMousePos: projCoords,
+          initialGeoPosition: artifact.position,
+        });
       }
     }
     setActiveArtifactId(info.artifactId);
@@ -2268,6 +2391,16 @@ export const DataCanvas: React.FC = () => {
               }
             });
             return { ...a, waypoints: newWaypoints };
+          } else if (a.type === 'point' && draggedInfo.initialGeoPosition) {
+            // For points: project initial geo position, apply delta, inverse project
+            try {
+              const initialProjPos = proj.forward(draggedInfo.initialGeoPosition);
+              const newProjPos: [number, number] = [initialProjPos[0] + dx, initialProjPos[1] + dy];
+              const newGeoPos = proj.inverse(newProjPos) as [number, number];
+              return { ...a, position: newGeoPos };
+            } catch (e) {
+              return a;
+            }
           }
         }
         return a;
@@ -2452,6 +2585,18 @@ export const DataCanvas: React.FC = () => {
               const rotatedX = dx * Math.cos(angle) - dy * Math.sin(angle);
               const rotatedY = dx * Math.sin(angle) + dy * Math.cos(angle);
               if (Math.abs(rotatedX) <= w / 2 && Math.abs(rotatedY) <= h / 2) artifactHit = true;
+            }
+          } else if (artifact.type === 'point') {
+            // Point hit detection - check if cursor is within symbol radius
+            try {
+              const pointProjPos = proj.forward(artifact.position);
+              if (pointProjPos && isFinite(pointProjPos[0]) && isFinite(pointProjPos[1])) {
+                const pointRadius = (artifact.symbolSize || 24) / 2 / (viewState.scale * dpr);
+                const dist = Math.sqrt(Math.pow(projCoords[0] - pointProjPos[0], 2) + Math.pow(projCoords[1] - pointProjPos[1], 2));
+                if (dist <= pointRadius) artifactHit = true;
+              }
+            } catch (e) {
+              // Skip if projection fails
             }
           } else if (artifact.type === 'path') { }
           if (artifactHit) {

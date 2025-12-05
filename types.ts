@@ -260,6 +260,34 @@ export interface AnalysisLayer extends LayerBase {
 
 export type Layer = BaseMapLayer | DataLayer | AnalysisLayer | DteCommsLayer | LpfCommsLayer | IlluminationLayer | ImageLayer;
 
+// --- Drag Info Types ---
+
+export interface DragInfo {
+  artifactId: string;
+  waypointId?: string;
+  initialMousePos: [number, number];
+  initialCenter?: [number, number];
+  initialCorners?: {
+    topLeft: [number, number];
+    topRight: [number, number];
+    bottomRight: [number, number];
+    bottomLeft: [number, number];
+  };
+  initialWaypointProjPositions?: [number, number][];
+  initialGeoPosition?: [number, number]; // For point artifacts
+}
+
+export interface ArtifactDisplayOptions {
+  waypointDotSize: number;
+  showSegmentLengths: boolean;
+  labelFontSize: number;
+  showActivitySymbols: boolean;
+}
+
+export interface PathCreationOptions {
+  defaultMaxSegmentLength: number | null; // in meters, null means no limit
+}
+
 // --- Artifact Types ---
 
 export interface ActivityDefinition {
@@ -296,7 +324,7 @@ export interface Waypoint {
 export interface ArtifactBase {
   id: string;
   name: string;
-  type: 'circle' | 'rectangle' | 'path';
+  type: 'circle' | 'rectangle' | 'path' | 'point';
   visible: boolean;
   color: string;
   thickness: number;
@@ -328,7 +356,17 @@ export interface PathArtifact extends ArtifactBase {
   waypoints: Waypoint[];
 }
 
-export type Artifact = CircleArtifact | RectangleArtifact | PathArtifact;
+export const POINT_SHAPES = ['circle', 'square', 'diamond', 'triangle', 'star', 'cross', 'pin'] as const;
+export type PointShape = typeof POINT_SHAPES[number];
+
+export interface PointArtifact extends ArtifactBase {
+  type: 'point';
+  position: [number, number]; // Geo coordinates [lon, lat]
+  shape?: PointShape; // Default: 'circle'
+  symbolSize?: number; // Default: 24
+}
+
+export type Artifact = CircleArtifact | RectangleArtifact | PathArtifact | PointArtifact;
 
 // Serializable artifacts are the same as the main ones since coords are arrays
 export type SerializableArtifact = Artifact;

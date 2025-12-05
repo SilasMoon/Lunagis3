@@ -8,7 +8,7 @@ interface ArtifactContextType {
     // Artifact state
     artifacts: Artifact[];
     activeArtifactId: string | null;
-    artifactCreationMode: "circle" | "rectangle" | "free_rectangle" | "path" | null;
+    artifactCreationMode: "circle" | "rectangle" | "free_rectangle" | "path" | "point" | null;
     isAppendingWaypoints: boolean;
     draggedInfo: DragInfo | null;
     artifactDisplayOptions: ArtifactDisplayOptions;
@@ -29,7 +29,7 @@ interface ArtifactContextType {
     // Artifact operations
     setArtifacts: React.Dispatch<React.SetStateAction<Artifact[]>>;
     setActiveArtifactId: React.Dispatch<React.SetStateAction<string | null>>;
-    setArtifactCreationMode: React.Dispatch<React.SetStateAction<"circle" | "rectangle" | "free_rectangle" | "path" | null>>;
+    setArtifactCreationMode: React.Dispatch<React.SetStateAction<"circle" | "rectangle" | "free_rectangle" | "path" | "point" | null>>;
     setIsAppendingWaypoints: React.Dispatch<React.SetStateAction<boolean>>;
     setDraggedInfo: React.Dispatch<React.SetStateAction<DragInfo | null>>;
     setArtifactDisplayOptions: React.Dispatch<React.SetStateAction<ArtifactDisplayOptions>>;
@@ -75,7 +75,7 @@ export const ArtifactProvider: React.FC<ArtifactProviderProps> = ({ children }) 
     // Artifact state
     const [artifacts, setArtifacts] = useState<Artifact[]>([]);
     const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
-    const [artifactCreationMode, setArtifactCreationMode] = useState<"circle" | "rectangle" | "free_rectangle" | "path" | null>(null);
+    const [artifactCreationMode, setArtifactCreationMode] = useState<"circle" | "rectangle" | "free_rectangle" | "path" | "point" | null>(null);
     const [isAppendingWaypoints, setIsAppendingWaypoints] = useState<boolean>(false);
     const [draggedInfo, setDraggedInfo] = useState<DragInfo | null>(null);
     const [artifactDisplayOptions, setArtifactDisplayOptions] = useState<ArtifactDisplayOptions>({

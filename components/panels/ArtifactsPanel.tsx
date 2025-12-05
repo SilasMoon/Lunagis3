@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import type { Artifact, ArtifactBase, CircleArtifact, RectangleArtifact, PathArtifact, Waypoint } from '../../types';
+import type { Artifact, ArtifactBase, CircleArtifact, RectangleArtifact, PathArtifact, PointArtifact, Waypoint } from '../../types';
 import { useArtifactContext } from '../../context/ArtifactContext';
 import { useViewportContext } from '../../context/ViewportContext';
 import { useLayerContext } from '../../context/LayerContext';
@@ -153,6 +153,72 @@ const ArtifactItem = React.memo<{ artifact: Artifact; isActive: boolean; onSelec
                                 </div>
                             </Section>
                         </>
+                    )}
+
+                    {artifact.type === 'point' && (
+                        <Section title="Point Properties" defaultOpen={true}>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block font-medium text-gray-300 mb-1">Shape</label>
+                                    <select
+                                        value={(artifact as PointArtifact).shape || 'circle'}
+                                        onChange={e => onUpdateArtifact(artifact.id, { shape: e.target.value as any })}
+                                        className="w-full bg-gray-700 text-white rounded-md p-1.5 border border-gray-600 text-sm"
+                                    >
+                                        <option value="circle">● Circle</option>
+                                        <option value="square">■ Square</option>
+                                        <option value="diamond">◆ Diamond</option>
+                                        <option value="triangle">▲ Triangle</option>
+                                        <option value="star">★ Star</option>
+                                        <option value="cross">✚ Cross</option>
+                                        <option value="pin">📍 Pin</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block font-medium text-gray-300 mb-1">Size: {(artifact as PointArtifact).symbolSize || 24}px</label>
+                                    <input type="range" min="8" max="64" step="2" value={(artifact as PointArtifact).symbolSize || 24} onChange={e => onUpdateArtifact(artifact.id, { symbolSize: Number(e.target.value) })} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500" />
+                                </div>
+                                <div className="pt-2 border-t border-gray-700">
+                                    <label className="block font-medium text-gray-300 mb-2">Coordinates</label>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-xs text-gray-400 w-12">Lon:</label>
+                                            <input
+                                                type="number"
+                                                step="0.000001"
+                                                value={(artifact as PointArtifact).position[0]}
+                                                onChange={e => {
+                                                    const lon = parseFloat(e.target.value);
+                                                    if (!isNaN(lon)) {
+                                                        const currentPos = (artifact as PointArtifact).position;
+                                                        onUpdateArtifact(artifact.id, { position: [lon, currentPos[1]] });
+                                                    }
+                                                }}
+                                                className="flex-1 bg-gray-700 text-white rounded-md p-1 border border-gray-600 text-xs font-mono"
+                                            />
+                                            <span className="text-xs text-gray-500">°</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-xs text-gray-400 w-12">Lat:</label>
+                                            <input
+                                                type="number"
+                                                step="0.000001"
+                                                value={(artifact as PointArtifact).position[1]}
+                                                onChange={e => {
+                                                    const lat = parseFloat(e.target.value);
+                                                    if (!isNaN(lat)) {
+                                                        const currentPos = (artifact as PointArtifact).position;
+                                                        onUpdateArtifact(artifact.id, { position: [currentPos[0], lat] });
+                                                    }
+                                                }}
+                                                className="flex-1 bg-gray-700 text-white rounded-md p-1 border border-gray-600 text-xs font-mono"
+                                            />
+                                            <span className="text-xs text-gray-500">°</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </Section>
                     )}
                 </div>
             )}
@@ -312,6 +378,7 @@ export const ArtifactsPanel: React.FC = () => {
                         <button onClick={() => setArtifactCreationMode('rectangle')} className="bg-indigo-700 hover:bg-indigo-600 text-white font-semibold py-2 px-2 rounded-md text-xs transition-all text-center">Add Grid Rect</button>
                         <button onClick={() => setArtifactCreationMode('free_rectangle')} className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-2 rounded-md text-xs transition-all text-center">Add Free Rect</button>
                         <button onClick={() => setArtifactCreationMode('path')} className="bg-purple-700 hover:bg-purple-600 text-white font-semibold py-2 px-2 rounded-md text-xs transition-all text-center">Add Path</button>
+                        <button onClick={() => setArtifactCreationMode('point')} className="bg-pink-700 hover:bg-pink-600 text-white font-semibold py-2 px-2 rounded-md text-xs transition-all text-center">Add Point</button>
                     </div>
                 </>
             )}
