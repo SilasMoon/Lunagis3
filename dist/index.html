@@ -1,50 +1,51 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Temporal Data Viewer</title>
-    <!-- External dependencies -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js"></script>
-    <!-- Note: d3.js is now bundled via npm, not CDN -->
-    <style>
-      /* For pixelated scaling of the canvas */
-      .pixelated {
-        image-rendering: -moz-crisp-edges;
-        image-rendering: -webkit-crisp-edges;
-        image-rendering: pixelated;
-        image-rendering: crisp-edges;
-      }
 
-      /* Visible focus indicators for accessibility */
-      *:focus-visible {
-        outline: 2px solid #06b6d4;
-        outline-offset: 2px;
-        border-radius: 4px;
-      }
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="LunaGis_logo.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Temporal Data Viewer</title>
+  <!-- External dependencies -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js"></script>
+  <!-- Note: d3.js is now bundled via npm, not CDN -->
+  <style>
+    /* For pixelated scaling of the canvas */
+    .pixelated {
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -webkit-crisp-edges;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
 
-      /* Focus styles for interactive elements */
-      button:focus-visible,
-      a:focus-visible,
-      input:focus-visible,
-      select:focus-visible,
-      textarea:focus-visible {
-        outline: 2px solid #06b6d4;
-        outline-offset: 2px;
-      }
+    /* Visible focus indicators for accessibility */
+    *:focus-visible {
+      outline: 2px solid #06b6d4;
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
 
-      /* Remove default focus outline to prevent double outlines */
-      *:focus {
-        outline: none;
-      }
+    /* Focus styles for interactive elements */
+    button:focus-visible,
+    a:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible {
+      outline: 2px solid #06b6d4;
+      outline-offset: 2px;
+    }
 
-      /* Keyboard-only focus (not mouse clicks) */
-      *:focus:not(:focus-visible) {
-        outline: none;
-      }
-    </style>
+    /* Remove default focus outline to prevent double outlines */
+    *:focus {
+      outline: none;
+    }
+
+    /* Keyboard-only focus (not mouse clicks) */
+    *:focus:not(:focus-visible) {
+      outline: none;
+    }
+  </style>
 
   <script type="importmap">
 {
@@ -55,9 +56,11 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="/Lunagis/assets/index-BgynJFtp.js"></script>
+  <script type="module" crossorigin src="/Lunagis3/assets/index-Br5lojJZ.js"></script>
 </head>
-  <body class="bg-gray-900 text-gray-100">
-    <div id="root"></div>
-  </body>
+
+<body class="bg-gray-900 text-gray-100">
+  <div id="root"></div>
+</body>
+
 </html>
